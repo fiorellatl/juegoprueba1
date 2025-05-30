@@ -10,51 +10,69 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh; /* Usa min-height para asegurar que ocupe toda la altura */
             background: #f0f0f0;
-            font-family: 'Inter', Arial, sans-serif; /* Usando Inter como fuente principal */
+            font-family: 'Inter', Arial, sans-serif;
+            overflow: hidden; /* Evita el scroll en el body */
+        }
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px; /* Limita el ancho máximo para pantallas grandes */
+            aspect-ratio: 2 / 1; /* Mantiene la proporción 800x400 (2:1) */
+            background: linear-gradient(to bottom, #87CEEB, #a8e4a0);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.4);
+            overflow: hidden; /* Asegura que el contenido del canvas no se desborde */
         }
         #gameCanvas {
-            border: 1px solid #000;
-            background: linear-gradient(to bottom, #87CEEB, #a8e4a0); /* Cielo y pasto */
-            border-radius: 10px; /* Bordes redondeados */
-            box-shadow: 0 0 15px rgba(0,0,0,0.4); /* Sombra para el canvas */
+            display: block;
+            width: 100%;
+            height: 100%;
         }
+        /* Estilos para los menús y botones */
         #menu, #pauseMenu, #levelSelect, #characterMenu, #levelComplete {
             position: absolute;
-            background: rgba(255, 255, 255, 0.95); /* Fondo ligeramente más opaco */
-            padding: 30px; /* Más padding */
-            border-radius: 15px; /* Más redondeado */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px; /* Ajustado para pantallas más pequeñas */
+            border-radius: 15px;
             text-align: center;
             display: none;
-            box-shadow: 0 0 20px rgba(0,0,0,0.4); /* Sombra más pronunciada */
-            border: 2px solid #4CAF50; /* Borde verde */
+            box-shadow: 0 0 20px rgba(0,0,0,0.4);
+            border: 2px solid #4CAF50;
+            max-width: 90%; /* Limita el ancho en móviles */
+            box-sizing: border-box; /* Incluye padding y border en el ancho */
         }
         h2 {
             color: #333;
             margin-top: 0;
-            font-size: 2em;
+            font-size: 1.8em; /* Ajustado para pantallas más pequeñas */
         }
         button {
-            padding: 12px 25px; /* Más padding */
-            margin: 8px; /* Más margen */
+            padding: 10px 20px; /* Ajustado para pantallas más pequeñas */
+            margin: 6px; /* Ajustado para pantallas más pequeñas */
             cursor: pointer;
-            background: linear-gradient(to bottom, #4CAF50, #45a049); /* Degradado */
+            background: linear-gradient(to bottom, #4CAF50, #45a049);
             color: white;
             border: none;
-            border-radius: 8px; /* Más redondeado */
-            font-size: 18px; /* Fuente más grande */
+            border-radius: 8px;
+            font-size: 16px; /* Ajustado para pantallas más pequeñas */
             font-weight: bold;
-            transition: all 0.3s ease; /* Transición suave */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2); /* Sombra para botones */
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            width: calc(100% - 12px); /* Ocupa casi todo el ancho disponible */
+            max-width: 250px; /* Ancho máximo para los botones */
         }
         button:hover {
             background: linear-gradient(to bottom, #45a049, #3e8e41);
-            transform: translateY(-2px); /* Efecto de elevación */
+            transform: translateY(-2px);
             box-shadow: 0 6px 8px rgba(0,0,0,0.3);
         }
         button:active {
-            transform: translateY(1px); /* Efecto de clic */
+            transform: translateY(1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
         button:disabled {
@@ -65,46 +83,61 @@
         }
         #coinDisplay, #coinDisplayPause, #coinDisplayLevel, #coinDisplayCharacter {
             font-weight: bold;
-            font-size: 1.2em;
+            font-size: 1.1em; /* Ajustado para pantallas más pequeñas */
             color: #555;
             transition: color 0.5s;
         }
         .highlight {
-            color: #FFD700; /* Color de oro para resaltar monedas */
+            color: #FFD700;
             text-shadow: 0 0 5px rgba(255,215,0,0.7);
         }
         #levelComplete h2 {
-            font-size: 28px;
+            font-size: 24px; /* Ajustado */
             color: #4CAF50;
         }
         #levelComplete p {
-            font-size: 20px;
+            font-size: 18px; /* Ajustado */
             color: #333;
         }
+        #levelList, #characterList {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px; /* Espacio entre elementos */
+            margin-bottom: 15px;
+        }
         .level-preview {
-            width: 120px; /* Más grande */
-            height: 70px; /* Más grande */
-            margin: 12px;
-            display: inline-block;
-            border: 3px solid #333; /* Borde más grueso */
+            width: 100px; /* Ajustado */
+            height: 60px; /* Ajustado */
+            margin: 8px; /* Ajustado */
+            display: inline-flex; /* Usar flex para centrar texto */
+            justify-content: center;
+            align-items: center;
+            border: 3px solid #333;
             border-radius: 8px;
             cursor: pointer;
             transition: transform 0.2s ease;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            font-size: 0.9em; /* Ajustado */
+            text-align: center;
         }
         .level-preview:hover {
             transform: scale(1.05);
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
         .character-option {
-            display: inline-block;
-            margin: 15px;
-            padding: 10px;
+            display: flex; /* Usar flexbox para el layout interno */
+            flex-direction: column; /* Apilar elementos verticalmente */
+            align-items: center; /* Centrar horizontalmente */
+            margin: 10px; /* Ajustado */
+            padding: 8px; /* Ajustado */
             border: 2px solid #ccc;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
             text-align: center;
+            width: 120px; /* Ancho fijo para las opciones de personaje */
+            box-sizing: border-box;
         }
         .character-option.selected {
             border-color: #4CAF50;
@@ -115,41 +148,36 @@
             transform: translateY(-3px);
             box-shadow: 0 5px 10px rgba(0,0,0,0.2);
         }
-        .character-option img {
-            width: 60px;
-            height: 60px;
+        .character-option img, .character-option .character-color-box {
+            width: 50px; /* Ajustado */
+            height: 50px; /* Ajustado */
             border-radius: 5px;
             margin-bottom: 5px;
-        }
-        .character-option .character-color-box {
-            width: 60px;
-            height: 60px;
-            border-radius: 5px;
-            margin: 0 auto 5px auto;
-            border: 1px solid #eee;
         }
         .character-option p {
             margin: 0;
             font-weight: bold;
             color: #333;
+            font-size: 0.9em; /* Ajustado */
         }
         .character-option .cost {
-            font-size: 0.9em;
+            font-size: 0.8em; /* Ajustado */
             color: #777;
         }
         .character-option button {
-            margin-top: 10px;
-            padding: 8px 15px;
-            font-size: 14px;
+            margin-top: 8px; /* Ajustado */
+            padding: 6px 12px; /* Ajustado */
+            font-size: 12px; /* Ajustado */
+            width: auto; /* Ancho automático para botones dentro de opciones */
+            max-width: none; /* Elimina el max-width */
         }
 
         #pauseButton {
             position: absolute;
-            top: 20px; /* Más margen */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 40px; /* Más grande */
-            height: 40px; /* Más grande */
+            top: 10px; /* Ajustado */
+            right: 10px; /* Posicionado a la derecha */
+            width: 35px; /* Ajustado */
+            height: 35px; /* Ajustado */
             background: #FF0000;
             border-radius: 50%;
             cursor: pointer;
@@ -159,75 +187,122 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
+            font-size: 20px; /* Ajustado */
             color: white;
             font-weight: bold;
+            z-index: 10; /* Asegura que esté por encima del canvas */
         }
         #pauseButton:hover {
             background: #CC0000;
         }
         #errorMessage {
             position: absolute;
-            top: 20px;
+            top: 10px; /* Ajustado */
             left: 50%;
             transform: translateX(-50%);
             background: rgba(255, 0, 0, 0.9);
             color: white;
-            padding: 10px 20px;
+            padding: 8px 15px; /* Ajustado */
             border-radius: 8px;
             display: none;
             box-shadow: 0 0 10px rgba(255,0,0,0.5);
             font-weight: bold;
+            font-size: 0.9em; /* Ajustado */
+            z-index: 10;
+        }
+
+        /* Media Queries para ajustes finos en diferentes tamaños de pantalla */
+        @media (max-width: 600px) {
+            h2 {
+                font-size: 1.5em;
+            }
+            button {
+                padding: 8px 15px;
+                font-size: 14px;
+            }
+            .level-preview {
+                width: 80px;
+                height: 50px;
+                margin: 5px;
+                font-size: 0.8em;
+            }
+            .character-option {
+                width: 100px;
+                margin: 5px;
+            }
+            .character-option img, .character-option .character-color-box {
+                width: 40px;
+                height: 40px;
+            }
+            .character-option p {
+                font-size: 0.8em;
+            }
+            .character-option button {
+                font-size: 11px;
+                padding: 5px 10px;
+            }
+            #pauseButton {
+                width: 30px;
+                height: 30px;
+                font-size: 18px;
+            }
+            #errorMessage {
+                padding: 6px 12px;
+                font-size: 0.8em;
+            }
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
 
-    <div id="menu">
-        <h2>Capybara Dash</h2>
-        <button onclick="startGame(1)">Jugar</button>
-        <button onclick="showLevelSelect()">Seleccionar Nivel</button>
-        <button onclick="showCharacters()">Seleccionar Personaje</button>
-        <button onclick="togglePractice()">Modo Práctica</button>
-        <p>Monedas: <span id="coinDisplay">0</span></p>
+        <div id="menu">
+            <h2>Capybara Dash</h2>
+            <button onclick="startGame(1)">Jugar</button>
+            <button onclick="showLevelSelect()">Seleccionar Nivel</button>
+            <button onclick="showCharacters()">Seleccionar Personaje</button>
+            <button onclick="togglePractice()">Modo Práctica</button>
+            <p>Monedas: <span id="coinDisplay">0</span></p>
+        </div>
+
+        <div id="levelSelect">
+            <h2>Seleccionar Nivel</h2>
+            <div id="levelList"></div>
+            <button onclick="returnToMenu()">Volver</button>
+            <p>Monedas: <span id="coinDisplayLevel">0</span></p>
+        </div>
+
+        <div id="pauseMenu">
+            <h2>Pausado</h2>
+            <button onclick="resumeGame()">Reanudar</button>
+            <button onclick="togglePractice()">Modo Práctica</button>
+            <button onclick="showCharacters()">Seleccionar Personaje</button>
+            <button onclick="returnToMenu()">Menú Principal</button>
+            <p>Monedas: <span id="coinDisplayPause">0</span></p>
+        </div>
+
+        <div id="characterMenu">
+            <h2>Seleccionar Personaje</h2>
+            <div id="characterList"></div>
+            <button onclick="returnToMenu()">Volver</button>
+            <p>Monedas: <span id="coinDisplayCharacter">0</span></p>
+        </div>
+
+        <div id="levelComplete">
+            <h2>¡Buena, Capybara! ¡Lo lograste!</h2>
+            <p id="completionTime"></p>
+            <button onclick="returnToMenu()">Menú Principal</button>
+        </div>
+
+        <div id="pauseButton" onclick="togglePause()">II</div>
+
+        <div id="errorMessage"></div>
     </div>
-
-    <div id="levelSelect">
-        <h2>Seleccionar Nivel</h2>
-        <div id="levelList"></div>
-        <button onclick="returnToMenu()">Volver</button>
-        <p>Monedas: <span id="coinDisplayLevel">0</span></p>
-    </div>
-
-    <div id="pauseMenu">
-        <h2>Pausado</h2>
-        <button onclick="resumeGame()">Reanudar</button>
-        <button onclick="togglePractice()">Modo Práctica</button>
-        <button onclick="showCharacters()">Seleccionar Personaje</button>
-        <button onclick="returnToMenu()">Menú Principal</button>
-        <p>Monedas: <span id="coinDisplayPause">0</span></p>
-    </div>
-
-    <div id="characterMenu">
-        <h2>Seleccionar Personaje</h2>
-        <div id="characterList"></div>
-        <button onclick="returnToMenu()">Volver</button>
-        <p>Monedas: <span id="coinDisplayCharacter">0</span></p>
-    </div>
-
-    <div id="levelComplete">
-        <h2>¡Buena, Capybara! ¡Lo lograste!</h2>
-        <p id="completionTime"></p>
-        <button onclick="returnToMenu()">Menú Principal</button>
-    </div>
-
-    <div id="pauseButton" onclick="togglePause()">II</div>
-
-    <div id="errorMessage"></div>
 
     <script>
         // --- Global Variables and DOM Elements ---
+        const gameContainer = document.getElementById('gameContainer');
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const menu = document.getElementById('menu');
@@ -1616,6 +1691,41 @@
             });
         }
 
+        // --- Responsiveness Logic ---
+
+        /**
+         * Adjusts the canvas size based on the container's dimensions.
+         * This function should be called on window load and resize.
+         */
+        function resizeGame() {
+            // Set canvas dimensions based on its parent container's computed size
+            const containerWidth = gameContainer.offsetWidth;
+            const containerHeight = gameContainer.offsetHeight;
+
+            // Maintain the 2:1 aspect ratio (800x400)
+            let newWidth = containerWidth;
+            let newHeight = containerWidth / 2; // Based on 2:1 aspect ratio
+
+            // If the calculated height exceeds the container height, adjust based on height
+            if (newHeight > containerHeight) {
+                newHeight = containerHeight;
+                newWidth = containerHeight * 2; // Based on 2:1 aspect ratio
+            }
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+
+            // Optional: Adjust game elements scaling if needed, but for simple games,
+            // just scaling the canvas might be enough.
+            // If you need to scale game elements, you'd calculate a scale factor:
+            // const scaleX = newWidth / 800;
+            // const scaleY = newHeight / 400;
+            // ctx.scale(scaleX, scaleY); // This would apply a global scale to all subsequent draws
+            // However, for this game, we're just resizing the canvas and letting the drawing
+            // functions adapt to the new canvas dimensions.
+            render(); // Re-render the game to fit the new canvas size
+        }
+
         // --- Event Listeners ---
 
         // Handle jump with spacebar
@@ -1640,10 +1750,30 @@
             }
         });
 
+        // Handle jump with touch on canvas for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent default touch behavior like scrolling
+            if (gameRunning && !isPaused && !player.jumping) {
+                player.jumping = true;
+                player.jumpHoldTime = 0;
+            }
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (gameRunning && !isPaused && player.jumping) {
+                player.jumping = false;
+            }
+        });
+
         // Event to start loading assets when window is fully loaded
         window.onload = function () {
             loadAssets();
+            resizeGame(); // Initial resize when the page loads
         };
+
+        // Event listener for window resize
+        window.addEventListener('resize', resizeGame);
 
     </script>
 </body>
