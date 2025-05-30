@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capybara Dash - Juego</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -11,6 +12,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh; /* Usa min-height para asegurar que ocupe toda la altura */
+            width: 100vw; /* Asegura que ocupe todo el ancho del viewport */
             background: #f0f0f0;
             font-family: 'Inter', Arial, sans-serif;
             overflow: hidden; /* Evita el scroll en el body */
@@ -24,11 +26,14 @@
             border-radius: 10px;
             box-shadow: 0 0 15px rgba(0,0,0,0.4);
             overflow: hidden; /* Asegura que el contenido del canvas no se desborde */
+            display: flex; /* Para centrar el canvas dentro del contenedor */
+            justify-content: center;
+            align-items: center;
         }
         #gameCanvas {
             display: block;
-            width: 100%;
-            height: 100%;
+            /* El ancho y alto del canvas se establecerán en JavaScript para el buffer de dibujo */
+            /* Las dimensiones CSS se ajustarán dinámicamente en resizeGame() */
         }
         /* Estilos para los menús y botones */
         #menu, #pauseMenu, #levelSelect, #characterMenu, #levelComplete {
@@ -45,26 +50,64 @@
             border: 2px solid #4CAF50;
             max-width: 90%; /* Limita el ancho en móviles */
             box-sizing: border-box; /* Incluye padding y border en el ancho */
+            z-index: 5; /* Asegura que los menús estén por encima del canvas */
         }
+        /* Estilos para la nueva pantalla de inicio */
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7); /* Fondo oscuro para la pantalla de inicio */
+            color: white;
+            display: flex; /* Mostrar por defecto al inicio */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10; /* Asegura que la pantalla de inicio esté en la parte superior */
+        }
+        #startScreen h1 {
+            font-family: 'Press Start 2P', cursive;
+            font-size: clamp(2em, 8vw, 4em); /* Tamaño de fuente responsivo para el título */
+            color: #FFD700; /* Color dorado para el título */
+            text-shadow: 4px 4px #000; /* Efecto de sombra pixelado */
+            margin-bottom: 0.5em;
+            text-align: center; /* Centrar el título */
+        }
+        #startScreen p {
+            font-family: 'Press Start 2P', cursive;
+            font-size: clamp(0.7em, 1.8vw, 0.9em); /* Tamaño de fuente responsivo para el texto, un poco más pequeño */
+            color: #FFF;
+            margin-top: 0;
+            line-height: 1.5;
+            padding: 0 10px; /* Pequeño padding para evitar que el texto se pegue a los bordes */
+            text-align: center; /* Centrar el texto */
+        }
+        #startScreen button {
+            margin-top: 20px;
+        }
+
         h2 {
             color: #333;
             margin-top: 0;
-            font-size: 1.8em; /* Ajustado para pantallas más pequeñas */
+            font-size: clamp(1.5em, 5vw, 2.5em); /* Fuente responsiva */
         }
         button {
-            padding: 10px 20px; /* Ajustado para pantallas más pequeñas */
-            margin: 6px; /* Ajustado para pantallas más pequeñas */
+            padding: 1.5vh 3vw; /* Padding responsivo */
+            margin: 1.5vh 1vw; /* Margen responsivo */
             cursor: pointer;
             background: linear-gradient(to bottom, #4CAF50, #45a049);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 16px; /* Ajustado para pantallas más pequeñas */
+            font-size: clamp(1em, 3.5vw, 1.2em); /* Fuente responsiva */
             font-weight: bold;
             transition: all 0.3s ease;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            width: calc(100% - 12px); /* Ocupa casi todo el ancho disponible */
+            min-width: 150px; /* Ancho mínimo para botones */
             max-width: 250px; /* Ancho máximo para los botones */
+            width: calc(100% - 2vw); /* Ocupa casi todo el ancho disponible */
         }
         button:hover {
             background: linear-gradient(to bottom, #45a049, #3e8e41);
@@ -255,7 +298,13 @@
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="startScreen">
+            <h1>Capybara Dash</h1>
+            <p>Este juego fue creado por Esteban, Cristóbal y Fiore. Ojalá no mueras</p>
+            <button onclick="showMainMenuFromStartScreen()">Empezar</button>
+        </div>
 
         <div id="menu">
             <h2>Capybara Dash</h2>
@@ -305,6 +354,7 @@
         const gameContainer = document.getElementById('gameContainer');
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen'); // Nueva referencia a la pantalla de inicio
         const menu = document.getElementById('menu');
         const levelSelect = document.getElementById('levelSelect');
         const pauseMenu = document.getElementById('pauseMenu');
@@ -312,6 +362,10 @@
         const levelComplete = document.getElementById('levelComplete');
         const pauseButton = document.getElementById('pauseButton');
         const errorMessage = document.getElementById('errorMessage');
+
+        // Dimensiones base del canvas para la lógica del juego
+        const BASE_CANVAS_WIDTH = 800;
+        const BASE_CANVAS_HEIGHT = 400;
 
         // Player coins, loaded from localStorage or initialized to 0
         let coins = localStorage.getItem('coins') ? parseInt(localStorage.getItem('coins')) : 0;
@@ -398,7 +452,7 @@
         let lastCloudSpawnTime = 0;
         const cloudSpawnInterval = 3000;
 
-        // Player object
+        // Player object (coordenadas en el sistema de 800x400)
         const player = {
             x: 100,
             y: 300,
@@ -406,8 +460,8 @@
             jumping: false,
             jumpHoldTime: 0,
             maxJumpHold: 500,
-            width: 45, // Increased player width
-            height: 45 // Increased player height
+            width: 45,
+            height: 45
         };
         const gravity = 0.8;
         const jumpStrength = -12;
@@ -418,6 +472,10 @@
 
         // Global object ID counter
         let objectIdCounter = 0;
+
+        // Objetos para la pantalla de inicio (caen desde arriba)
+        let startScreenObjects = [];
+        let startScreenAnimationId = null; // Para controlar la animación de la pantalla de inicio
 
         // Helper function to create game objects with unique IDs
         function createGameObject(type, x, y, width, height, moving = null) {
@@ -439,7 +497,7 @@
                 return await audioContext.decodeAudioData(arrayBuffer);
             } catch (error) {
                 console.error('Error loading audio:', error);
-                showError(`No se pudo cargar el audio: ${url}. Asegúrate de que la URL sea correcta y accesible.`);
+                // Removed: showError(`No se pudo cargar el audio: ${url}. Asegúrate de que la URL sea correcta y accesible.`);
                 return null;
             }
         }
@@ -492,7 +550,9 @@
                 console.error('Fallo al cargar assets:', error);
                 showError('Error al cargar assets. Revisa la consola y asegúrate de que las URLs de los assets sean correctas y accesibles.');
             }
-            menu.style.display = 'block'; // Show main menu once assets are loaded
+            // Después de cargar los assets, inicializa la pantalla de inicio
+            initStartScreen();
+            animateStartScreen();
         }
 
         /**
@@ -569,8 +629,8 @@
         function createCloud() {
             const size = 50 + Math.random() * 50;
             clouds.push({
-                x: canvas.width,
-                y: Math.random() * (canvas.height / 3),
+                x: BASE_CANVAS_WIDTH, // Usar dimensiones base
+                y: Math.random() * (BASE_CANVAS_HEIGHT / 3), // Usar dimensiones base
                 size: size,
                 speed: 0.5 + Math.random() * 0.5,
                 alpha: 0.8 + Math.random() * 0.2
@@ -626,7 +686,7 @@
                 position: { ...obj.position }
             }));
             // Add 'finish' object at the end of the level
-            const finishX = (duration * scrollSpeed * 60) + canvas.width;
+            const finishX = (duration * scrollSpeed * 60) + BASE_CANVAS_WIDTH; // Usar BASE_CANVAS_WIDTH
             objectsWithIds.push(createGameObject('finish', finishX, 300, 40, 100));
             return objectsWithIds;
         }
@@ -1170,7 +1230,7 @@
             }
 
             // If player falls below the canvas (off-screen)
-            if (!onGround && player.y > canvas.height) {
+            if (!onGround && player.y > BASE_CANVAS_HEIGHT) { // Usar BASE_CANVAS_HEIGHT
                 handleDeath();
                 return;
             }
@@ -1189,7 +1249,7 @@
                 const alreadyActive = objects.some(activeObj => activeObj.id === baseObj.id);
                 if (!alreadyActive) {
                     const screenX = baseObj.position.x - scrollPosition;
-                    if (screenX <= canvas.width + 50 && baseObj.position.x > scrollPosition + player.x - 100) {
+                    if (screenX <= BASE_CANVAS_WIDTH + 50 && baseObj.position.x > scrollPosition + player.x - 100) { // Usar BASE_CANVAS_WIDTH
                         const newObj = { ...baseObj, currentY: baseObj.position.y };
                         if (newObj.type === 'cheese' || newObj.type === 'giant_cheese') { // Apply falling to giant cheese too
                             newObj.currentY = 0;
@@ -1249,7 +1309,7 @@
             // Player collision detection with objects
             objects.forEach((obj, index) => {
                 const objX = obj.position.x - scrollPosition;
-                if (objX < -50 || objX > canvas.width) return;
+                if (objX < -50 || objX > BASE_CANVAS_WIDTH) return; // Usar BASE_CANVAS_WIDTH
 
                 const objLeft = objX;
                 const objRight = objX + obj.width;
@@ -1298,23 +1358,23 @@
          * Draws all game elements on the canvas.
          */
         function render() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT); // Usar dimensiones base
 
-            const skyHeight = canvas.height * 0.6;
-            const grassHeight = canvas.height * 0.4;
+            const skyHeight = BASE_CANVAS_HEIGHT * 0.6; // Usar dimensiones base
+            const grassHeight = BASE_CANVAS_HEIGHT * 0.4; // Usar dimensiones base
             
             ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(0, 0, canvas.width, skyHeight);
+            ctx.fillRect(0, 0, BASE_CANVAS_WIDTH, skyHeight); // Usar dimensiones base
 
             drawClouds();
 
             ctx.fillStyle = '#a8e4a0';
-            ctx.fillRect(0, skyHeight, canvas.width, grassHeight);
+            ctx.fillRect(0, skyHeight, BASE_CANVAS_WIDTH, grassHeight); // Usar dimensiones base
 
             ctx.fillStyle = '#8B4513';
             terrain.forEach(segment => {
                 const x = segment.x - scrollPosition;
-                if (x + segment.width > 0 && x < canvas.width) {
+                if (x + segment.width > 0 && x < BASE_CANVAS_WIDTH) { // Usar dimensiones base
                     ctx.fillRect(x, segment.y, segment.width, segment.height);
                 }
             });
@@ -1322,7 +1382,7 @@
             // Draw objects (obstacles and collectibles)
             objects.forEach(obj => {
                 const x = obj.position.x - scrollPosition;
-                if (x < -50 || x > canvas.width) return;
+                if (x < -50 || x > BASE_CANVAS_WIDTH) return; // Usar dimensiones base
                 const y = obj.currentY || obj.position.y;
 
                 switch (obj.type) {
@@ -1473,7 +1533,7 @@
                     startAudioAndGame(levelId);
                 }).catch(e => {
                     console.error('Error al reanudar AudioContext:', e);
-                    showError('No se pudo iniciar el audio. Por favor, interactúa con la página.');
+                    // Removed: showError('No se pudo iniciar el audio. Por favor, interactúa con la página.');
                     startAudioAndGame(levelId);
                 });
             } else {
@@ -1517,6 +1577,7 @@
             characterMenu.style.display = 'none';
             levelComplete.style.display = 'none';
             pauseButton.style.display = 'flex';
+            startScreen.style.display = 'none'; // Asegurarse de ocultar la pantalla de inicio
 
             gameRunning = true;
             isPaused = false;
@@ -1554,6 +1615,16 @@
         }
 
         /**
+         * Muestra el menú principal desde la pantalla de inicio.
+         */
+        function showMainMenuFromStartScreen() {
+            cancelAnimationFrame(startScreenAnimationId); // Detener la animación de la pantalla de inicio
+            startScreen.style.display = 'none';
+            menu.style.display = 'block';
+            updateCoinDisplays();
+        }
+
+        /**
          * Shows the level selection menu.
          */
         function showLevelSelect() {
@@ -1588,6 +1659,8 @@
             levelComplete.style.display = 'none';
             pauseButton.style.display = 'none';
             updateCoinDisplays();
+            // Si volvemos al menú principal, no volvemos a la pantalla de inicio
+            // Si se quisiera volver a la pantalla de inicio, se llamaría a initStartScreen() y animateStartScreen() aquí
         }
 
         /**
@@ -1698,33 +1771,109 @@
          * This function should be called on window load and resize.
          */
         function resizeGame() {
-            // Set canvas dimensions based on its parent container's computed size
             const containerWidth = gameContainer.offsetWidth;
             const containerHeight = gameContainer.offsetHeight;
 
-            // Maintain the 2:1 aspect ratio (800x400)
-            let newWidth = containerWidth;
-            let newHeight = containerWidth / 2; // Based on 2:1 aspect ratio
+            // Calcular dimensiones para ajustarse al contenedor manteniendo la relación de aspecto
+            const aspectRatio = BASE_CANVAS_WIDTH / BASE_CANVAS_HEIGHT;
+            let targetWidth = containerWidth;
+            let targetHeight = containerWidth / aspectRatio;
 
-            // If the calculated height exceeds the container height, adjust based on height
-            if (newHeight > containerHeight) {
-                newHeight = containerHeight;
-                newWidth = containerHeight * 2; // Based on 2:1 aspect ratio
+            if (targetHeight > containerHeight) {
+                targetHeight = containerHeight;
+                targetWidth = containerHeight * aspectRatio;
             }
 
-            canvas.width = newWidth;
-            canvas.height = newHeight;
+            // Establecer las dimensiones CSS del elemento canvas
+            canvas.style.width = `${targetWidth}px`;
+            canvas.style.height = `${targetHeight}px`;
 
-            // Optional: Adjust game elements scaling if needed, but for simple games,
-            // just scaling the canvas might be enough.
-            // If you need to scale game elements, you'd calculate a scale factor:
-            // const scaleX = newWidth / 800;
-            // const scaleY = newHeight / 400;
-            // ctx.scale(scaleX, scaleY); // This would apply a global scale to all subsequent draws
-            // However, for this game, we're just resizing the canvas and letting the drawing
-            // functions adapt to the new canvas dimensions.
-            render(); // Re-render the game to fit the new canvas size
+            // Establecer el tamaño del buffer de dibujo interno a la resolución base
+            // Esto significa que todas las operaciones de dibujo ocurrirán en un canvas virtual de 800x400,
+            // y el navegador escalará esta imagen de 800x400 para ajustarse a las dimensiones CSS.
+            canvas.width = BASE_CANVAS_WIDTH;
+            canvas.height = BASE_CANVAS_HEIGHT;
+
+            // Re-renderizar el juego para que se ajuste al nuevo tamaño del canvas
+            if (gameRunning) {
+                render();
+            } else if (startScreen.style.display === 'flex') {
+                renderStartScreen(); // Si la pantalla de inicio está activa, renderizarla
+            }
         }
+
+        // --- Start Screen Logic ---
+
+        /**
+         * Inicializa los objetos que caen en la pantalla de inicio.
+         */
+        function initStartScreen() {
+            startScreenObjects = [];
+            // Añadir algunos objetos para que caigan
+            for (let i = 0; i < 10; i++) {
+                startScreenObjects.push({
+                    type: Math.random() < 0.5 ? 'cheese' : 'wool',
+                    x: Math.random() * BASE_CANVAS_WIDTH,
+                    y: -Math.random() * BASE_CANVAS_HEIGHT, // Empiezan por encima del canvas
+                    width: 30 + Math.random() * 30,
+                    height: 30 + Math.random() * 30,
+                    vy: 1 + Math.random() * 3 // Velocidad de caída
+                });
+            }
+        }
+
+        /**
+         * Actualiza la posición de los objetos en la pantalla de inicio.
+         */
+        function updateStartScreen() {
+            startScreenObjects.forEach(obj => {
+                obj.y += obj.vy;
+                // Si el objeto cae por debajo del canvas, resetearlo arriba
+                if (obj.y > BASE_CANVAS_HEIGHT) {
+                    obj.y = -obj.height;
+                    obj.x = Math.random() * BASE_CANVAS_WIDTH;
+                }
+            });
+        }
+
+        /**
+         * Dibuja los objetos en la pantalla de inicio.
+         */
+        function renderStartScreen() {
+            // Limpiar el canvas para la pantalla de inicio
+            ctx.clearRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT);
+
+            // Dibujar un fondo simple o dejarlo transparente para que se vea el body background
+            ctx.fillStyle = 'rgba(0,0,0,0)'; // Fondo transparente para el canvas de la pantalla de inicio
+
+            // Dibujar los objetos que caen
+            startScreenObjects.forEach(obj => {
+                let image = null;
+                if (obj.type === 'cheese' && cheeseImage) {
+                    image = cheeseImage;
+                } else if (obj.type === 'wool' && woolImage) {
+                    image = woolImage;
+                }
+
+                if (image) {
+                    ctx.drawImage(image, obj.x, obj.y, obj.width, obj.height);
+                } else {
+                    // Fallback a un color si la imagen no carga
+                    ctx.fillStyle = obj.type === 'cheese' ? '#FFD700' : '#FFFFFF';
+                    ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+                }
+            });
+        }
+
+        /**
+         * Bucle de animación para la pantalla de inicio.
+         */
+        function animateStartScreen() {
+            updateStartScreen();
+            renderStartScreen();
+            startScreenAnimationId = requestAnimationFrame(animateStartScreen);
+        }
+
 
         // --- Event Listeners ---
 
