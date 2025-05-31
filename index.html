@@ -166,6 +166,7 @@
             text-align: center;
             font-weight: bold;
             display: flex;
+            flex-direction: column; /* Apilar nombre y dificultad */
             justify-content: center;
             align-items: center;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
@@ -177,6 +178,15 @@
             box-shadow: 0 6px 12px rgba(0,0,0,0.2);
             border-color: #4CAF50;
         }
+        .level-preview .level-name {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        .level-preview .level-difficulty {
+            font-size: 0.8em;
+            color: #666;
+        }
+
         .character-option {
             display: flex; /* Usar flexbox para el layout interno */
             flex-direction: column; /* Apilar elementos verticalmente */
@@ -430,6 +440,7 @@
         const capybaraImageUrl = 'capybara.png';
         const poopImageUrl = 'poop.png';
         const cheeseImageUrl = 'cheese.png';
+        const chocoImageUrl = 'choco.png'; // New: Choco image URL
         const eycImageUrl = 'eyc.png';
         const estebanImageUrl = 'esteban.png';
         const kilyImageUrl = 'kily.png';
@@ -450,6 +461,7 @@
         let capybaraImage = null;
         let poopImage = null;
         let cheeseImage = null;
+        let chocoImage = null; // New: Choco image buffer
         let eycImage = null;
         let estebanImage = null;
         let kilyImage = null;
@@ -565,6 +577,7 @@
                 capybaraImage = await loadImage(capybaraImageUrl);
                 poopImage = await loadImage(poopImageUrl);
                 cheeseImage = await loadImage(cheeseImageUrl);
+                chocoImage = await loadImage(chocoImageUrl); // Load choco image
                 eycImage = await loadImage(eycImageUrl);
                 estebanImage = await loadImage(estebanImageUrl);
                 kilyImage = await loadImage(kilyImageUrl);
@@ -709,7 +722,7 @@
          * @param {Array<Object>} baseObjects - Array of base objects (world coordinates).
          * @param {number} scrollSpeed - Level scroll speed.
          * @param {number} duration - Estimated level duration in seconds.
-         * @returns {Array<Object>} Array of level objects with assigned IDs.
+         * @returns {object} An object containing the array of level objects with assigned IDs and the finishX coordinate.
          */
         function generateLevelObjects(baseObjects, scrollSpeed, duration = 45) {
             // Deep copy base objects and assign IDs if not already present
@@ -721,7 +734,7 @@
             // Add 'finish' object at the end of the level
             const finishX = (duration * scrollSpeed * 60) + BASE_CANVAS_WIDTH; // Usar BASE_CANVAS_WIDTH
             objectsWithIds.push(createGameObject('finish', finishX, 300, 40, 100));
-            return objectsWithIds;
+            return { objects: objectsWithIds, finishX: finishX }; // Return an object with objects and finishX
         }
 
         /**
@@ -753,7 +766,8 @@
         const levels = {
             1: {
                 name: 'Facilito',
-                scrollSpeed: (16.8 * 0.85) * 1.15, /* Reduced by 15% and then increased by 15% */
+                difficulty: 'Fácil',
+                scrollSpeed: (16.8 * 0.65), /* Reduced by 35% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#00FF00',
                 baseObjects: [
@@ -881,7 +895,8 @@
             },
             2: {
                 name: 'Ataque de Queso',
-                scrollSpeed: 21 * 0.85, /* Reduced by 15% */
+                difficulty: 'Medio',
+                scrollSpeed: (21 * 0.65), /* Reduced by 35% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#FFD700',
                 baseObjects: [
@@ -1067,7 +1082,8 @@
             },
             3: {
                 name: 'Imposible',
-                scrollSpeed: 25.2 * 0.85, /* Reduced by 15% */
+                difficulty: 'Difícil',
+                scrollSpeed: (25.2 * 0.65), /* Reduced by 35% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#FF0000',
                 baseObjects: [
@@ -1174,7 +1190,8 @@
             },
             4: { // New Level: Queso Chocolatón
                 name: 'Queso Chocolatón',
-                scrollSpeed: 30 * 1.15, // Fastest speed
+                difficulty: 'Extremo',
+                scrollSpeed: (30 * 0.65), // Fastest speed, reduced by 35%
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#8B4513', // Brown for chocolate cheese
                 baseObjects: [], // Will be populated dynamically below
@@ -1190,7 +1207,8 @@
             },
             5: { // New Level: El Mundo de Cris (Trampoline World)
                 name: 'El Mundo de Cris',
-                scrollSpeed: 15, // Adjusted speed for a jump-focused level
+                difficulty: 'Saltarín',
+                scrollSpeed: (15 * 0.65), // Adjusted speed for a jump-focused level, reduced by 35%
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#FF69B4', // Pink for a fun, bouncy world
                 baseObjects: [], // Populated dynamically below
@@ -1245,15 +1263,15 @@
         let currentTrampolineX = player.x + 100; // Start generating subsequent trampolines from a small offset
         let lastTrampolineY = firstTrampolineY; // Initial Y for the first trampoline
 
-        // Generate trampolines and other obstacles
+        // Generate trampolines and other obstacles (excluding blades)
         while (currentTrampolineX < level5EndGameX) {
             const isDoubleJump = Math.random() < 0.3; // 30% chance for double jump trampoline
             const trampolineWidth = 60;
             const trampolineHeight = 20;
             const minGap = 100; // Minimum horizontal gap between trampolines
-            const maxGap = 200; // Maximum horizontal gap
-            const minHeightChange = -70; // Minimum change in height (can go up)
-            const maxHeightChange = 70; // Maximum change in height (can go down)
+            const maxGap = 250; // Increased max gap for more variety
+            const minHeightChange = -80; // Can go higher
+            const maxHeightChange = 80; // Can go lower
 
             // Calculate next trampoline position
             currentTrampolineX += minGap + Math.random() * (maxGap - minGap);
@@ -1262,25 +1280,25 @@
 
             level5BaseObjects.push(createGameObject(isDoubleJump ? 'double_trampoline' : 'trampoline', currentTrampolineX, lastTrampolineY, trampolineWidth, trampolineHeight));
 
-            // Add other obstacles intermittently
-            if (Math.random() < 0.4) { // 40% chance to add another obstacle after a trampoline
+            // Add other obstacles intermittently (excluding blades)
+            if (Math.random() < 0.6) { // Increased chance to add another obstacle
                 const obstacleType = Math.random();
-                let obstacleX = currentTrampolineX + 50 + Math.random() * 100; // Place after trampoline
+                let obstacleX = currentTrampolineX + 30 + Math.random() * 80; // Place after trampoline, closer
                 let obstacleY;
                 let obj;
 
-                if (obstacleType < 0.25) { // Spike
+                if (obstacleType < 0.3) { // Spike (on ground)
                     obstacleY = BASE_CANVAS_HEIGHT - 50; // Place on the ground (spikes_ground)
                     obj = createGameObject('spike', obstacleX, obstacleY, 30, 20);
-                } else if (obstacleType < 0.50) { // Low fence
+                } else if (obstacleType < 0.6) { // Low fence (on ground)
                     obstacleY = BASE_CANVAS_HEIGHT - 110; // Place on the ground
                     obj = createGameObject('low_fence', obstacleX, obstacleY, 40, 60);
-                } else if (obstacleType < 0.75) { // Blade (vertical)
-                    obstacleY = Math.random() * (BASE_CANVAS_HEIGHT - 100) + 50; // Random vertical position
-                    obj = createGameObject('blade', obstacleX, obstacleY, 30, 30, { type: 'vertical', range: 80, speed: 2 });
-                } else { // Collectible (wool or cheese)
-                    obstacleY = Math.random() * (BASE_CANVAS_HEIGHT - 150) + 50; // Random vertical position
-                    obj = createGameObject(Math.random() < 0.5 ? 'cheese' : 'wool', obstacleX, obstacleY, 40, 40);
+                } else if (obstacleType < 0.8) { // Wool (collectible, in air)
+                    obstacleY = lastTrampolineY - 50 - Math.random() * 50; // Above the trampoline
+                    obj = createGameObject('wool', obstacleX, obstacleY, 40, 40);
+                } else { // Cheese (collectible, in air)
+                    obstacleY = lastTrampolineY - 50 - Math.random() * 50; // Above the trampoline
+                    obj = createGameObject('cheese', obstacleX, obstacleY, 40, 40);
                 }
                 level5BaseObjects.push(obj);
             }
@@ -1305,8 +1323,11 @@
         for (let levelId in levels) {
             // Special handling for Level 5: duration is 40s
             const durationForLevel = (levelId == 5) ? 40 : 45;
-            levels[levelId].objects = generateLevelObjects(levels[levelId].baseObjects, levels[levelId].scrollSpeed, durationForLevel);
+            const generated = generateLevelObjects(levels[levelId].baseObjects, levels[levelId].scrollSpeed, durationForLevel);
+            levels[levelId].objects = generated.objects;
+            levels[levelId].finishX = generated.finishX; // Store finishX for progress calculation
             levels[levelId].terrain = generateTerrain(levels[levelId].baseTerrain, levels[levelId].scrollSpeed, durationForLevel);
+            levels[levelId].duration = durationForLevel; // Ensure duration is stored for all levels
         }
 
         // --- Main Game Loop ---
@@ -1491,7 +1512,18 @@
                         });
                         createParticles(objX + obj.width / 2, objTop + obj.height / 2, 5, '#FFFFFF');
                         objects.splice(index, 1); // Remove wool when collected
-                    } else if (obj.type === 'spring') {
+                    } else if (obj.type === 'cheese') { // Handle cheese collection
+                        coins += 10; // Or whatever value you want for cheese
+                        localStorage.setItem('coins', coins);
+                        coinDisplays.forEach(display => {
+                            display.textContent = coins;
+                            display.classList.add('highlight');
+                            setTimeout(() => display.classList.remove('highlight'), 500);
+                        });
+                        createParticles(objX + obj.width / 2, objTop + obj.height / 2, 5, '#FFD700'); // Yellow particles for cheese
+                        objects.splice(index, 1); // Remove cheese when collected
+                    }
+                    else if (obj.type === 'spring') {
                         player.vy = jumpStrength * 1.8;
                         player.jumping = true;
                         player.jumpHoldTime = 0;
@@ -1523,7 +1555,7 @@
                         levelComplete.style.display = 'block';
                         pauseButton.style.display = 'none';
                         objects = [];
-                    } else { // Any other obstacle (fence, low_fence, spike, blade, cheese, giant_cheese)
+                    } else { // Any other obstacle (fence, low_fence, spike, blade, giant_cheese)
                         handleDeath();
                     }
                 }
@@ -1609,11 +1641,18 @@
 
                 switch (obj.type) {
                     case 'cheese':
-                    case 'giant_cheese': // Draw giant cheese using the same image
                         if (cheeseImage) {
                             ctx.drawImage(cheeseImage, x, y, obj.width, obj.height);
                         } else {
                             ctx.fillStyle = '#FFD700';
+                            ctx.fillRect(x, y, obj.width, obj.height);
+                        }
+                        break;
+                    case 'giant_cheese': // Draw giant cheese using the choco image
+                        if (chocoImage) {
+                            ctx.drawImage(chocoImage, x, y, obj.width, obj.height);
+                        } else {
+                            ctx.fillStyle = '#8B4513'; // Fallback to brown if choco image fails
                             ctx.fillRect(x, y, obj.width, obj.height);
                         }
                         break;
@@ -1741,15 +1780,15 @@
             }
 
             // Draw giant cheese for Level 4
-            if (currentLevel === 4 && giantCheese && cheeseImage) {
-                ctx.drawImage(cheeseImage, giantCheese.x, giantCheese.y, giantCheese.width, giantCheese.height);
+            if (currentLevel === 4 && giantCheese && chocoImage) { // Use chocoImage for giant cheese
+                ctx.drawImage(chocoImage, giantCheese.x, giantCheese.y, giantCheese.width, giantCheese.height);
             }
 
             // Draw level text, time, and progress
             ctx.fillStyle = 'black';
             ctx.font = '16px Arial';
             const currentTime = gameRunning ? (performance.now() - gameStartTime) / 1000 : 0;
-            const totalLevelWidth = levels[currentLevel].scrollSpeed * 60 * levels[currentLevel].duration; // Use level-specific duration
+            const totalLevelWidth = levels[currentLevel].finishX; // Use stored finishX for accurate progress
             const progressPercentage = Math.min(100, (scrollPosition / totalLevelWidth) * 100).toFixed(1);
             ctx.fillText(`Nivel: ${levels[currentLevel].name} | Tiempo: ${currentTime.toFixed(1)}s | Progreso: ${progressPercentage}%`, 10, 20);
         }
@@ -1832,6 +1871,21 @@
                 player.y = 100; // Start player in the air
             } else {
                 player.y = 300; // Default player Y for other levels
+            }
+
+            // Initialize giant cheese for Level 4 if applicable
+            if (currentLevel === 4) {
+                const giantCheeseObj = levels[4].baseObjects.find(obj => obj.type === 'giant_cheese');
+                if (giantCheeseObj) {
+                    giantCheese = {
+                        x: giantCheeseObj.position.x,
+                        y: giantCheeseObj.position.y,
+                        width: giantCheeseObj.width,
+                        height: giantCheeseObj.height
+                    };
+                }
+            } else {
+                giantCheese = null; // Clear giant cheese for other levels
             }
 
 
@@ -1953,7 +2007,17 @@
                 const levelDiv = document.createElement('div');
                 levelDiv.className = 'level-preview';
                 levelDiv.style.backgroundColor = level.previewColor;
-                levelDiv.textContent = level.name;
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'level-name';
+                nameSpan.textContent = level.name;
+                levelDiv.appendChild(nameSpan);
+
+                const difficultySpan = document.createElement('span');
+                difficultySpan.className = 'level-difficulty';
+                difficultySpan.textContent = level.difficulty;
+                levelDiv.appendChild(difficultySpan);
+
                 levelDiv.onclick = () => startGame(parseInt(id));
                 levelListDiv.appendChild(levelDiv);
             }
