@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Capybara Dash - Juego</title>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start2P&display=swap" rel="stylesheet">
     <style>
         body {
             margin: 0;
@@ -51,6 +51,8 @@
             max-width: 90%; /* Limita el ancho en móviles */
             box-sizing: border-box; /* Incluye padding y border en el ancho */
             z-index: 5; /* Asegura que los menús estén por encima del canvas */
+            max-height: 90%; /* Limita la altura máxima del menú */
+            overflow-y: auto; /* Permite el scroll vertical si el contenido excede la altura */
         }
         /* Estilos para la nueva pantalla de inicio */
         #startScreen {
@@ -59,7 +61,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.7); /* Fondo oscuro para la pantalla de inicio */
+            /* background: rgba(0,0,0,0.7); -- Este fondo ahora se dibuja en el canvas */
             color: white;
             display: flex; /* Mostrar por defecto al inicio */
             flex-direction: column;
@@ -147,26 +149,33 @@
             flex-wrap: wrap;
             justify-content: center;
             gap: 10px; /* Espacio entre elementos */
-            margin-bottom: 15px;
+            margin-bottom: 15px; /* Mantener un margen para el botón de volver */
+            padding-bottom: 10px; /* Añadir padding inferior para evitar que el contenido se pegue al borde */
+            overflow-y: auto; /* Permitir scroll dentro de la lista de personajes si es necesario */
+            max-height: calc(100vh - 200px); /* Ajustar max-height para dejar espacio al título y botón. Ajustar según sea necesario */
         }
         .level-preview {
-            width: 100px; /* Ajustado */
-            height: 60px; /* Ajustado */
-            margin: 8px; /* Ajustado */
-            display: inline-flex; /* Usar flex para centrar texto */
+            width: 100px; /* Ancho fijo para las opciones de nivel */
+            height: 60px; /* Alto fijo */
+            margin: 8px; /* Margen ajustado */
+            padding: 10px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            font-weight: bold;
+            display: flex;
             justify-content: center;
             align-items: center;
-            border: 3px solid #333;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            color: #333; /* Color de texto predeterminado */
             font-size: 0.9em; /* Ajustado */
-            text-align: center;
         }
         .level-preview:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            border-color: #4CAF50;
         }
         .character-option {
             display: flex; /* Usar flexbox para el layout interno */
@@ -292,6 +301,13 @@
             #errorMessage {
                 padding: 6px 12px;
                 font-size: 0.8em;
+            }
+            /* Ajustes específicos para el menú de personajes en pantallas pequeñas */
+            #characterMenu {
+                padding: 10px; /* Reducir el padding general del menú */
+            }
+            #characterList {
+                max-height: calc(100vh - 180px); /* Ajustar el max-height para dejar más espacio */
             }
         }
     </style>
@@ -422,6 +438,12 @@
         const lowFenceImageUrl = 'lowfence.webp'; // Added low fence image URL
         const spikeImageUrl = 'spike.png';
         const bladeImageUrl = 'blade.png';
+        // New asset for meteor
+        const meteorImageUrl = 'https://i.imgur.com/8Q2Z4X3.png'; // Placeholder for meteor image
+        // New asset for trampoline
+        const trampolineImageUrl = 'https://i.imgur.com/k2X7Y0j.png'; // Placeholder for trampoline image
+        // New asset for double trampoline
+        const doubleTrampolineImageUrl = 'https://i.imgur.com/N7Q3B1z.png'; // Placeholder for double trampoline image
 
 
         // Image buffers
@@ -436,6 +458,9 @@
         let lowFenceImage = null; // Declared low fence image variable
         let spikeImage = null;
         let bladeImage = null;
+        let meteorImage = null; // New image variable for meteor
+        let trampolineImage = null; // New image variable for trampoline
+        let doubleTrampolineImage = null; // New image variable for double trampoline
 
 
         // --- Game Variables ---
@@ -465,6 +490,9 @@
         };
         const gravity = 0.8;
         const jumpStrength = -12;
+        const trampolineJumpStrength = -20; // Fuerza de salto para trampolines normales
+        const doubleTrampolineJumpStrength = -30; // Fuerza de salto para trampolines dobles
+
         let scrollPosition = 0;
         let scrollSpeed = 0;
         let objects = [];
@@ -476,6 +504,9 @@
         // Objetos para la pantalla de inicio (caen desde arriba)
         let startScreenObjects = [];
         let startScreenAnimationId = null; // Para controlar la animación de la pantalla de inicio
+
+        // Global giant cheese object for Level 4
+        let giantCheese = null;
 
         // Helper function to create game objects with unique IDs
         function createGameObject(type, x, y, width, height, moving = null) {
@@ -497,7 +528,6 @@
                 return await audioContext.decodeAudioData(arrayBuffer);
             } catch (error) {
                 console.error('Error loading audio:', error);
-                // Removed: showError(`No se pudo cargar el audio: ${url}. Asegúrate de que la URL sea correcta y accesible.`);
                 return null;
             }
         }
@@ -543,6 +573,9 @@
                 lowFenceImage = await loadImage(lowFenceImageUrl); // Load low fence image
                 spikeImage = await loadImage(spikeImageUrl);
                 bladeImage = await loadImage(bladeImageUrl);
+                meteorImage = await loadImage(meteorImageUrl); // Load meteor image
+                trampolineImage = await loadImage(trampolineImageUrl); // Load trampoline image
+                doubleTrampolineImage = await loadImage(doubleTrampolineImageUrl); // Load double trampoline image
 
 
                 console.log('Assets cargados exitosamente');
@@ -720,7 +753,7 @@
         const levels = {
             1: {
                 name: 'Facilito',
-                scrollSpeed: 16.8, /* Reduced by 30% from 24 */
+                scrollSpeed: (16.8 * 0.85) * 1.15, /* Reduced by 15% and then increased by 15% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#00FF00',
                 baseObjects: [
@@ -782,7 +815,34 @@
                     createGameObject('spring', initialDelayX + 8700, 330, 30, 20),
                     createGameObject('fence', initialDelayX + 8850, 270, 80, 80), // Doubled size, adjusted Y
                     createGameObject('spike', initialDelayX + 9000, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 9150, 260, 90, 90) // 3x bigger, adjusted Y
+                    createGameObject('cheese', initialDelayX + 9150, 260, 90, 90), // 3x bigger, adjusted Y
+
+                    // New obstacles added for Level 1 (between 15s and 40s mark)
+                    createGameObject('spike', initialDelayX + 10500, 330, 30, 20),
+                    createGameObject('low_fence', initialDelayX + 11500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 12500, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 13500, 260, 90, 90),
+                    createGameObject('low_fence', initialDelayX + 14500, 290, 40, 60),
+                    createGameObject('blade', initialDelayX + 15500, 180, 30, 30, { type: 'vertical', range: 40, speed: 1.5 }),
+                    createGameObject('spike', initialDelayX + 16500, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 17500, 120, 60, 60),
+                    createGameObject('low_fence', initialDelayX + 18500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 19500, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 20500, 260, 90, 90),
+                    createGameObject('blade', initialDelayX + 21500, 320, 30, 30, { type: 'horizontal', range: 50, speed: 2 }),
+                    createGameObject('low_fence', initialDelayX + 22500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 23500, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 24500, 180, 60, 60),
+                    createGameObject('low_fence', initialDelayX + 25500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 26500, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 27500, 260, 90, 90),
+                    createGameObject('blade', initialDelayX + 28500, 260, 30, 30, { type: 'vertical', range: 40, speed: 1.5 }),
+                    createGameObject('low_fence', initialDelayX + 29500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 30500, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 31500, 180, 60, 60),
+                    createGameObject('low_fence', initialDelayX + 32500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 33500, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 34500, 260, 90, 90)
                 ],
                 baseTerrain: [
                     { x: 0, y: 350, width: initialDelayX + 200, height: 50 }, // Starting platform
@@ -821,7 +881,7 @@
             },
             2: {
                 name: 'Ataque de Queso',
-                scrollSpeed: 21, /* Reduced by 30% from 30 */
+                scrollSpeed: 21 * 0.85, /* Reduced by 15% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#FFD700',
                 baseObjects: [
@@ -1007,133 +1067,90 @@
             },
             3: {
                 name: 'Imposible',
-                scrollSpeed: 25.2, /* Reduced by 30% from 36 */
+                scrollSpeed: 25.2 * 0.85, /* Reduced by 15% */
                 practicePoints: [0, 10, 20, 30, 40],
                 previewColor: '#FF0000',
                 baseObjects: [
-                    createGameObject('low_fence', initialDelayX + 800, 290, 40, 60), /* Adjusted size and Y */
+                    createGameObject('low_fence', initialDelayX + 800, 290, 40, 60),
                     createGameObject('spike', initialDelayX + 1000, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 1100, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 1250, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 1450, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 1550, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 1700, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 1900, 260, 30, 30, { type: 'vertical', range: 80, speed: 4 }),
-                    createGameObject('cheese', initialDelayX + 2000, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 2150, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 2350, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 2450, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 2600, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 2800, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 2900, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 3050, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 3250, 320, 30, 30, { type: 'horizontal', range: 100, speed: 6 }),
-                    createGameObject('cheese', initialDelayX + 3350, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 3500, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 3700, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 3800, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 3950, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 4150, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 4250, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 4400, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 4600, 260, 30, 30, { type: 'vertical', range: 90, speed: 5 }),
-                    createGameObject('cheese', initialDelayX + 4700, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 4850, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 5050, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 5150, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 5300, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 5500, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 5600, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 5750, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 5950, 320, 30, 30, { type: 'horizontal', range: 120, speed: 7 }),
-                    createGameObject('cheese', initialDelayX + 6050, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 6200, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 6400, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 6500, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 6650, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 6850, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 6950, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 7100, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 7300, 260, 30, 30, { type: 'vertical', range: 100, speed: 6 }),
-                    createGameObject('cheese', initialDelayX + 7400, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 7550, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 7750, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 7850, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 8000, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 8200, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 8300, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 8450, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 8650, 320, 30, 30, { type: 'horizontal', range: 140, speed: 8 }),
-                    createGameObject('cheese', initialDelayX + 8750, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 8900, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 9100, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 9200, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 9350, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 9550, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 9650, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 9800, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 10000, 260, 30, 30, { type: 'vertical', range: 110, speed: 7 }),
-                    createGameObject('cheese', initialDelayX + 10100, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 10250, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 10450, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 10550, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 10700, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 10900, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 11000, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 11150, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 11350, 320, 30, 30, { type: 'horizontal', range: 160, speed: 9 }),
-                    createGameObject('cheese', initialDelayX + 11450, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 11600, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 11800, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 11900, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 12050, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 12250, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 12350, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 12500, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 12700, 260, 30, 30, { type: 'vertical', range: 120, speed: 8 }),
-                    createGameObject('cheese', initialDelayX + 12800, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 12950, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 13150, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 13250, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 13400, 270, 80, 80), // Doubled size, adjusted Y
+                    createGameObject('cheese', initialDelayX + 1200, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 1500, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 1700, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 1900, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 2200, 260, 30, 30, { type: 'vertical', range: 80, speed: 4 }),
+                    createGameObject('low_fence', initialDelayX + 2500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 2700, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 2900, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 3200, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 3400, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 3600, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 3900, 320, 30, 30, { type: 'horizontal', range: 100, speed: 6 }),
+                    createGameObject('low_fence', initialDelayX + 4200, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 4400, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 4600, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 4900, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 5100, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 5300, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 5600, 260, 30, 30, { type: 'vertical', range: 90, speed: 5 }),
+                    createGameObject('low_fence', initialDelayX + 5900, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 6100, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 6300, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 6600, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 6800, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 7000, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 7300, 320, 30, 30, { type: 'horizontal', range: 120, speed: 7 }),
+                    createGameObject('low_fence', initialDelayX + 7600, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 7800, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 8000, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 8300, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 8500, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 8700, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 9000, 260, 30, 30, { type: 'vertical', range: 100, speed: 6 }),
+                    createGameObject('low_fence', initialDelayX + 9300, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 9500, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 9700, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 10000, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 10200, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 10400, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 10700, 320, 30, 30, { type: 'horizontal', range: 140, speed: 8 }),
+                    createGameObject('low_fence', initialDelayX + 11000, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 11200, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 11400, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 11700, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 11900, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 12100, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 12400, 260, 30, 30, { type: 'vertical', range: 110, speed: 7 }),
+                    createGameObject('low_fence', initialDelayX + 12700, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 12900, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 13100, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 13400, 270, 80, 80),
                     createGameObject('spring', initialDelayX + 13600, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 13700, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 13850, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 14050, 320, 30, 30, { type: 'horizontal', range: 180, speed: 10 }),
-                    createGameObject('cheese', initialDelayX + 14150, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 14300, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 14500, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 14600, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 14750, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 14950, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 15050, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 15200, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 15400, 260, 30, 30, { type: 'vertical', range: 130, speed: 9 }),
-                    createGameObject('cheese', initialDelayX + 15500, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 15650, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 15850, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 15950, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 16100, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 16300, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 16400, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 16550, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 16750, 320, 30, 30, { type: 'horizontal', range: 200, speed: 11 }),
-                    createGameObject('cheese', initialDelayX + 16850, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 17000, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 17200, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 17300, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 17450, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 17650, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 17750, 330, 30, 20),
-                    createGameObject('wool', initialDelayX + 17900, 180, 60, 60), // Doubled size, appeared in sky
-                    createGameObject('blade', initialDelayX + 18100, 260, 30, 30, { type: 'vertical', range: 140, speed: 10 }),
-                    createGameObject('cheese', initialDelayX + 18200, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('low_fence', initialDelayX + 18350, 290, 40, 60), /* Adjusted size and Y */
-                    createGameObject('spike', initialDelayX + 18550, 330, 30, 20),
-                    createGameObject('cheese', initialDelayX + 18650, 260, 90, 90), // 3x bigger, adjusted Y
-                    createGameObject('fence', initialDelayX + 18800, 270, 80, 80), // Doubled size, adjusted Y
-                    createGameObject('spring', initialDelayX + 19000, 330, 30, 20),
-                    createGameObject('spike', initialDelayX + 19100, 330, 30, 20)
+                    createGameObject('wool', initialDelayX + 13800, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 14100, 320, 30, 30, { type: 'horizontal', range: 160, speed: 9 }),
+                    createGameObject('low_fence', initialDelayX + 14400, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 14600, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 14800, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 15100, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 15300, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 15500, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 15800, 260, 30, 30, { type: 'vertical', range: 120, speed: 8 }),
+                    createGameObject('low_fence', initialDelayX + 16100, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 16300, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 16500, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 16800, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 17000, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 17200, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 17500, 320, 30, 30, { type: 'horizontal', range: 180, speed: 10 }),
+                    createGameObject('low_fence', initialDelayX + 17800, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 18000, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 18200, 260, 90, 90),
+                    createGameObject('fence', initialDelayX + 18500, 270, 80, 80),
+                    createGameObject('spring', initialDelayX + 18700, 330, 30, 20),
+                    createGameObject('wool', initialDelayX + 18900, 180, 60, 60),
+                    createGameObject('blade', initialDelayX + 19200, 260, 30, 30, { type: 'vertical', range: 130, speed: 9 }),
+                    createGameObject('low_fence', initialDelayX + 19500, 290, 40, 60),
+                    createGameObject('spike', initialDelayX + 19700, 330, 30, 20),
+                    createGameObject('cheese', initialDelayX + 19900, 260, 90, 90)
                 ],
                 baseTerrain: [
                     { x: 0, y: 350, width: initialDelayX + 300, height: 50 }, // Starting platform
@@ -1154,13 +1171,142 @@
                     // Ceiling for Level 3
                     { x: initialDelayX + 1000, y: 0, width: 2000, height: 50 } // Ceiling segment
                 ]
+            },
+            4: { // New Level: Queso Chocolatón
+                name: 'Queso Chocolatón',
+                scrollSpeed: 30 * 1.15, // Fastest speed
+                practicePoints: [0, 10, 20, 30, 40],
+                previewColor: '#8B4513', // Brown for chocolate cheese
+                baseObjects: [], // Will be populated dynamically below
+                baseTerrain: [
+                    { x: 0, y: 350, width: initialDelayX + 500, height: 50 }, // Starting platform
+                    { x: initialDelayX + 600, y: 320, width: 200, height: 50 },
+                    { x: initialDelayX + 900, y: 290, width: 150, height: 50 },
+                    { x: initialDelayX + 1200, y: 350, width: 300, height: 50 },
+                    { x: initialDelayX + 1600, y: 300, width: 250, height: 50 },
+                    { x: initialDelayX + 2000, y: 350, width: 400, height: 50 },
+                    { x: initialDelayX + 2500, y: 350, width: 100000, height: 50 } // Long continuous ground
+                ]
+            },
+            5: { // New Level: El Mundo de Cris (Trampoline World)
+                name: 'El Mundo de Cris',
+                scrollSpeed: 15, // Adjusted speed for a jump-focused level
+                practicePoints: [0, 10, 20, 30, 40],
+                previewColor: '#FF69B4', // Pink for a fun, bouncy world
+                baseObjects: [], // Populated dynamically below
+                baseTerrain: [
+                    // No terreno continuo, solo púas en el fondo
+                    { x: 0, y: BASE_CANVAS_HEIGHT - 20, width: 100000, height: 20, type: 'spikes_ground' } // Spikes at the very bottom
+                ]
             }
         };
 
+        // Populate baseObjects for Level 4
+        const level4BaseObjects = [];
+        const level4CalculatedSpeed = levels[4].scrollSpeed;
+        const obstacleDensity = 150; // Even denser obstacles
+        let currentObstacleX = initialDelayX + (1 * level4CalculatedSpeed * 60); // Start from approx 1 second mark
+
+        // Go up to 40 seconds, plus a buffer
+        const endObstacleX = initialDelayX + (40 * level4CalculatedSpeed * 60) + (level4CalculatedSpeed * 60 * 5); // 40 seconds + 5 seconds buffer
+
+        while (currentObstacleX < endObstacleX) {
+            const obstacleType = Math.random();
+            let obj;
+            if (obstacleType < 0.35) { // Spikes
+                obj = createGameObject('spike', currentObstacleX, 330, 30, 20);
+            } else if (obstacleType < 0.70) { // Low fences
+                obj = createGameObject('low_fence', currentObstacleX, 290, 40, 60);
+            } else if (obstacleType < 0.85) { // Blades
+                const bladeType = Math.random() < 0.5 ? 'vertical' : 'horizontal';
+                const bladeY = bladeType === 'vertical' ? (300 - Math.random() * 100) : 320;
+                const bladeRange = 40 + Math.random() * 40;
+                const bladeSpeed = 1.5 + Math.random() * 2;
+                obj = createGameObject('blade', currentObstacleX, bladeY, 30, 30, { type: bladeType, range: bladeRange, speed: bladeSpeed });
+            } else { // Collectibles (cheese or wool)
+                obj = createGameObject(Math.random() < 0.5 ? 'cheese' : 'wool', currentObstacleX, 200 + Math.random() * 50, 60, 60);
+            }
+            level4BaseObjects.push(obj);
+            currentObstacleX += obstacleDensity + (Math.random() * 50); // Add randomness to spacing
+        }
+        levels[4].baseObjects = level4BaseObjects;
+
+        // Populate baseObjects for Level 5 (El Mundo de Cris)
+        const level5BaseObjects = [];
+        const level5CalculatedSpeed = levels[5].scrollSpeed;
+        const level5Duration = 40; // Level duration in seconds
+        const level5EndGameX = (level5Duration * level5CalculatedSpeed * 60); // End of game X coordinate
+
+        // Initial player position for Level 5 will be set in startAudioAndGame to be in the air.
+        // So, place the first trampoline directly below the player's starting X, at a reachable height.
+        const firstTrampolineY = BASE_CANVAS_HEIGHT - 150; // A reasonable height for the first trampoline
+        level5BaseObjects.push(createGameObject('trampoline', player.x, firstTrampolineY, 60, 20));
+
+        let currentTrampolineX = player.x + 100; // Start generating subsequent trampolines from a small offset
+        let lastTrampolineY = firstTrampolineY; // Initial Y for the first trampoline
+
+        // Generate trampolines and other obstacles
+        while (currentTrampolineX < level5EndGameX) {
+            const isDoubleJump = Math.random() < 0.3; // 30% chance for double jump trampoline
+            const trampolineWidth = 60;
+            const trampolineHeight = 20;
+            const minGap = 100; // Minimum horizontal gap between trampolines
+            const maxGap = 200; // Maximum horizontal gap
+            const minHeightChange = -70; // Minimum change in height (can go up)
+            const maxHeightChange = 70; // Maximum change in height (can go down)
+
+            // Calculate next trampoline position
+            currentTrampolineX += minGap + Math.random() * (maxGap - minGap);
+            // Ensure trampolines are within playable vertical range (e.g., not too high or too low)
+            lastTrampolineY = Math.max(80, Math.min(BASE_CANVAS_HEIGHT - 80, lastTrampolineY + minHeightChange + Math.random() * (maxHeightChange - minHeightChange)));
+
+            level5BaseObjects.push(createGameObject(isDoubleJump ? 'double_trampoline' : 'trampoline', currentTrampolineX, lastTrampolineY, trampolineWidth, trampolineHeight));
+
+            // Add other obstacles intermittently
+            if (Math.random() < 0.4) { // 40% chance to add another obstacle after a trampoline
+                const obstacleType = Math.random();
+                let obstacleX = currentTrampolineX + 50 + Math.random() * 100; // Place after trampoline
+                let obstacleY;
+                let obj;
+
+                if (obstacleType < 0.25) { // Spike
+                    obstacleY = BASE_CANVAS_HEIGHT - 50; // Place on the ground (spikes_ground)
+                    obj = createGameObject('spike', obstacleX, obstacleY, 30, 20);
+                } else if (obstacleType < 0.50) { // Low fence
+                    obstacleY = BASE_CANVAS_HEIGHT - 110; // Place on the ground
+                    obj = createGameObject('low_fence', obstacleX, obstacleY, 40, 60);
+                } else if (obstacleType < 0.75) { // Blade (vertical)
+                    obstacleY = Math.random() * (BASE_CANVAS_HEIGHT - 100) + 50; // Random vertical position
+                    obj = createGameObject('blade', obstacleX, obstacleY, 30, 30, { type: 'vertical', range: 80, speed: 2 });
+                } else { // Collectible (wool or cheese)
+                    obstacleY = Math.random() * (BASE_CANVAS_HEIGHT - 150) + 50; // Random vertical position
+                    obj = createGameObject(Math.random() < 0.5 ? 'cheese' : 'wool', obstacleX, obstacleY, 40, 40);
+                }
+                level5BaseObjects.push(obj);
+            }
+        }
+
+        // Generate falling obstacles (meteors) - start later to allow for initial platforming
+        let meteorSpawnX = player.x + 500; // Start meteors after the initial trampolines
+        const meteorSpawnInterval = 1000; // Spawn a meteor every 1 second
+
+        while (meteorSpawnX < level5EndGameX + BASE_CANVAS_WIDTH) { // Generate meteors beyond the level end to ensure they keep falling
+            meteorSpawnX += meteorSpawnInterval + Math.random() * 500; // Randomize spawn time
+            const meteorSize = 30 + Math.random() * 30;
+            const meteorY = -meteorSize; // Start above the canvas
+            const meteorFallSpeed = 3 + Math.random() * 2;
+            level5BaseObjects.push(createGameObject('meteor', meteorSpawnX, meteorY, meteorSize, meteorSize, { type: 'falling', speed: meteorFallSpeed }));
+        }
+
+        levels[5].baseObjects = level5BaseObjects;
+
+
         // Generates objects and terrain for each level at startup
         for (let levelId in levels) {
-            levels[levelId].objects = generateLevelObjects(levels[levelId].baseObjects, levels[levelId].scrollSpeed, 45);
-            levels[levelId].terrain = generateTerrain(levels[levelId].baseTerrain, levels[levelId].scrollSpeed, 45);
+            // Special handling for Level 5: duration is 40s
+            const durationForLevel = (levelId == 5) ? 40 : 45;
+            levels[levelId].objects = generateLevelObjects(levels[levelId].baseObjects, levels[levelId].scrollSpeed, durationForLevel);
+            levels[levelId].terrain = generateTerrain(levels[levelId].baseTerrain, levels[levelId].scrollSpeed, durationForLevel);
         }
 
         // --- Main Game Loop ---
@@ -1203,6 +1349,12 @@
                         player.jumping = false;
                         player.jumpHoldTime = 0;
                         onGround = true;
+
+                        // If it's the spike ground in Level 5, player dies
+                        if (currentLevel === 5 && segment.type === 'spikes_ground') {
+                            handleDeath();
+                            return;
+                        }
                         break; // Player landed, no need to check other segments for landing
                     }
                     // Collision from top (hitting a ceiling)
@@ -1223,8 +1375,15 @@
                         }
                     }
                     if (!hasLowerSegment) {
-                        handleDeath();
-                        return;
+                        // In Level 5, falling off a trampoline means hitting spikes
+                        if (currentLevel === 5) {
+                            handleDeath();
+                            return;
+                        } else {
+                            // Original logic for other levels
+                            handleDeath();
+                            return;
+                        }
                     }
                 }
             }
@@ -1251,10 +1410,10 @@
                     const screenX = baseObj.position.x - scrollPosition;
                     if (screenX <= BASE_CANVAS_WIDTH + 50 && baseObj.position.x > scrollPosition + player.x - 100) { // Usar BASE_CANVAS_WIDTH
                         const newObj = { ...baseObj, currentY: baseObj.position.y };
-                        if (newObj.type === 'cheese' || newObj.type === 'giant_cheese') { // Apply falling to giant cheese too
+                        if (newObj.type === 'cheese' || newObj.type === 'giant_cheese' || newObj.type === 'meteor') { // Apply falling to giant cheese and meteor
                             newObj.currentY = 0;
                             newObj.targetY = baseObj.position.y; // Use original Y as target
-                            newObj.fallSpeed = 5;
+                            newObj.fallSpeed = newObj.moving ? newObj.moving.speed : 5; // Use moving speed if defined, else default
                             newObj.falling = true;
                         } else {
                             newObj.currentY = newObj.position.y;
@@ -1309,7 +1468,7 @@
             // Player collision detection with objects
             objects.forEach((obj, index) => {
                 const objX = obj.position.x - scrollPosition;
-                if (objX < -50 || objX > BASE_CANVAS_WIDTH) return; // Usar BASE_CANVAS_WIDTH
+                if (objX < -50 || objX > BASE_CANVAS_WIDTH) return; // Usar dimensiones base
 
                 const objLeft = objX;
                 const objRight = objX + obj.width;
@@ -1338,6 +1497,23 @@
                         player.jumpHoldTime = 0;
                         createParticles(objX + obj.width / 2, objTop, 10, '#00FF00');
                         objects.splice(index, 1);
+                    } else if (obj.type === 'trampoline') {
+                        if (player.vy >= 0) { // Only jump if falling onto the trampoline
+                            player.vy = trampolineJumpStrength;
+                            player.jumping = true;
+                            player.jumpHoldTime = 0;
+                            createParticles(objX + obj.width / 2, objTop, 10, '#00FF00'); // Green particles for normal jump
+                        }
+                    } else if (obj.type === 'double_trampoline') {
+                        if (player.vy >= 0) { // Only jump if falling onto the trampoline
+                            player.vy = doubleTrampolineJumpStrength;
+                            player.jumping = true;
+                            player.jumpHoldTime = 0;
+                            createParticles(objX + obj.width / 2, objTop, 15, '#FFFF00'); // Yellow particles for double jump
+                        }
+                    } else if (obj.type === 'meteor') {
+                        handleDeath(); // Player dies if hit by a meteor
+                        return;
                     }
                     else if (obj.type === 'finish') {
                         gameRunning = false;
@@ -1352,6 +1528,24 @@
                     }
                 }
             });
+
+            // Giant Cheese chase logic and collision for Level 4
+            if (currentLevel === 4 && giantCheese) {
+                // Update giant cheese position to chase the player
+                const targetX = player.x - 200; // Keep it behind the player
+                const dx = targetX - giantCheese.x;
+                giantCheese.x += dx * 0.02; // Smooth chase, adjust factor for responsiveness
+                giantCheese.x -= scrollSpeed; // Move with the level scroll
+
+                // Collision with giant cheese
+                if (player.x + player.width > giantCheese.x &&
+                    player.x < giantCheese.x + giantCheese.width &&
+                    player.y + player.height > giantCheese.y &&
+                    player.y < giantCheese.y + giantCheese.height) {
+                    handleDeath(); // Player dies if caught by giant cheese
+                    return; // Exit update function as player died
+                }
+            }
         }
 
         /**
@@ -1360,6 +1554,7 @@
         function render() {
             ctx.clearRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT); // Usar dimensiones base
 
+            // Dibujar el fondo del cielo y pasto
             const skyHeight = BASE_CANVAS_HEIGHT * 0.6; // Usar dimensiones base
             const grassHeight = BASE_CANVAS_HEIGHT * 0.4; // Usar dimensiones base
             
@@ -1368,16 +1563,43 @@
 
             drawClouds();
 
-            ctx.fillStyle = '#a8e4a0';
-            ctx.fillRect(0, skyHeight, BASE_CANVAS_WIDTH, grassHeight); // Usar dimensiones base
+            // Special background for Level 5 (Cris's World)
+            if (currentLevel === 5) {
+                ctx.fillStyle = '#ADD8E6'; // Light blue for sky
+                ctx.fillRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT);
 
-            ctx.fillStyle = '#8B4513';
-            terrain.forEach(segment => {
-                const x = segment.x - scrollPosition;
-                if (x + segment.width > 0 && x < BASE_CANVAS_WIDTH) { // Usar dimensiones base
-                    ctx.fillRect(x, segment.y, segment.width, segment.height);
-                }
-            });
+                // Draw spike ground for Level 5
+                ctx.fillStyle = '#8B0000'; // Dark red for spikes
+                terrain.forEach(segment => {
+                    const x = segment.x - scrollPosition;
+                    if (x + segment.width > 0 && x < BASE_CANVAS_WIDTH && segment.type === 'spikes_ground') {
+                        ctx.fillRect(x, segment.y, segment.width, segment.height);
+                        // Draw spike triangles on top
+                        ctx.fillStyle = '#FF0000'; // Red for spikes
+                        const spikeCount = Math.floor(segment.width / 10); // Spikes every 10 units
+                        for (let i = 0; i < spikeCount; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(x + i * 10, segment.y + segment.height);
+                            ctx.lineTo(x + i * 10 + 5, segment.y);
+                            ctx.lineTo(x + i * 10 + 10, segment.y + segment.height);
+                            ctx.fill();
+                        }
+                    }
+                });
+
+            } else {
+                ctx.fillStyle = '#a8e4a0';
+                ctx.fillRect(0, skyHeight, BASE_CANVAS_WIDTH, grassHeight); // Usar dimensiones base
+
+                ctx.fillStyle = '#8B4513';
+                terrain.forEach(segment => {
+                    const x = segment.x - scrollPosition;
+                    if (x + segment.width > 0 && x < BASE_CANVAS_WIDTH) { // Usar dimensiones base
+                        ctx.fillRect(x, segment.y, segment.width, segment.height);
+                    }
+                });
+            }
+
 
             // Draw objects (obstacles and collectibles)
             objects.forEach(obj => {
@@ -1450,6 +1672,38 @@
                         ctx.font = '10px Arial';
                         ctx.fillText('↑', x + obj.width / 2 - 4, y + obj.height / 2 + 4);
                         break;
+                    case 'meteor': // Draw meteor
+                        if (meteorImage) {
+                            ctx.drawImage(meteorImage, x, y, obj.width, obj.height);
+                        } else {
+                            ctx.fillStyle = '#663300'; // Brown color for meteor
+                            ctx.beginPath();
+                            ctx.arc(x + obj.width / 2, y + obj.height / 2, obj.width / 2, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        break;
+                    case 'trampoline': // Draw trampoline
+                        if (trampolineImage) {
+                            ctx.drawImage(trampolineImage, x, y, obj.width, obj.height);
+                        } else {
+                            ctx.fillStyle = '#00BFFF'; // Deep sky blue for trampoline
+                            ctx.fillRect(x, y, obj.width, obj.height);
+                            ctx.fillStyle = '#000000';
+                            ctx.font = '12px Arial';
+                            ctx.fillText('Jump', x + obj.width / 2 - 15, y + obj.height / 2 + 4);
+                        }
+                        break;
+                    case 'double_trampoline': // Draw double trampoline
+                        if (doubleTrampolineImage) {
+                            ctx.drawImage(doubleTrampolineImage, x, y, obj.width, obj.height);
+                        } else {
+                            ctx.fillStyle = '#FF4500'; // Orange red for double trampoline
+                            ctx.fillRect(x, y, obj.width, obj.height);
+                            ctx.fillStyle = '#000000';
+                            ctx.font = '12px Arial';
+                            ctx.fillText('Double', x + obj.width / 2 - 20, y + obj.height / 2 + 4);
+                        }
+                        break;
                     case 'finish':
                         ctx.fillStyle = '#00FF00';
                         ctx.fillRect(x, y, obj.width, obj.height);
@@ -1486,16 +1740,19 @@
                 ctx.fillRect(player.x, player.y, player.width, player.height);
             }
 
+            // Draw giant cheese for Level 4
+            if (currentLevel === 4 && giantCheese && cheeseImage) {
+                ctx.drawImage(cheeseImage, giantCheese.x, giantCheese.y, giantCheese.width, giantCheese.height);
+            }
+
             // Draw level text, time, and progress
             ctx.fillStyle = 'black';
             ctx.font = '16px Arial';
             const currentTime = gameRunning ? (performance.now() - gameStartTime) / 1000 : 0;
-            const totalLevelWidth = levels[currentLevel].scrollSpeed * 60 * 45;
+            const totalLevelWidth = levels[currentLevel].scrollSpeed * 60 * levels[currentLevel].duration; // Use level-specific duration
             const progressPercentage = Math.min(100, (scrollPosition / totalLevelWidth) * 100).toFixed(1);
             ctx.fillText(`Nivel: ${levels[currentLevel].name} | Tiempo: ${currentTime.toFixed(1)}s | Progreso: ${progressPercentage}%`, 10, 20);
         }
-
-        // --- Player Control Functions ---
 
         /**
          * Handles player jump logic.
@@ -1514,6 +1771,7 @@
             gameRunning = false;
             stopAudio();
             playAudio(deathSoundBuffer);
+            createParticles(player.x + player.width / 2, player.y + player.height / 2, 30, '#FF0000'); // Explosion effect
             showError('¡Has muerto! Inténtalo de nuevo.');
             returnToMenu();
             objects = [];
@@ -1533,7 +1791,6 @@
                     startAudioAndGame(levelId);
                 }).catch(e => {
                     console.error('Error al reanudar AudioContext:', e);
-                    // Removed: showError('No se pudo iniciar el audio. Por favor, interactúa con la página.');
                     startAudioAndGame(levelId);
                 });
             } else {
@@ -1550,7 +1807,7 @@
             if (audioBuffer) {
                 audioSource = playAudio(audioBuffer);
                 if (audioSource) {
-                    const levelDurationSeconds = 45;
+                    const levelDurationSeconds = levels[levelId].duration || 45; // Use level-specific duration
                     audioTimeoutId = setTimeout(() => {
                         stopAudio();
                     }, levelDurationSeconds * 1000);
@@ -1560,7 +1817,6 @@
             currentLevel = levelId;
             scrollPosition = 0;
             player.x = 100;
-            player.y = 300;
             player.vy = 0;
             player.jumping = false;
             player.jumpHoldTime = 0;
@@ -1570,6 +1826,14 @@
             clouds = [];
             lastCloudSpawnTime = 0;
             objectIdCounter = 0;
+
+            // Special initial player position for Level 5
+            if (currentLevel === 5) {
+                player.y = 100; // Start player in the air
+            } else {
+                player.y = 300; // Default player Y for other levels
+            }
+
 
             menu.style.display = 'none';
             levelSelect.style.display = 'none';
@@ -1840,11 +2104,12 @@
          * Dibuja los objetos en la pantalla de inicio.
          */
         function renderStartScreen() {
-            // Limpiar el canvas para la pantalla de inicio
+            // Limpiar el canvas
             ctx.clearRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT);
 
-            // Dibujar un fondo simple o dejarlo transparente para que se vea el body background
-            ctx.fillStyle = 'rgba(0,0,0,0)'; // Fondo transparente para el canvas de la pantalla de inicio
+            // Dibujar el fondo oscuro semi-transparente en el canvas
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, BASE_CANVAS_WIDTH, BASE_CANVAS_HEIGHT);
 
             // Dibujar los objetos que caen
             startScreenObjects.forEach(obj => {
